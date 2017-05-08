@@ -1,11 +1,14 @@
 import React, { Component } from 'react';
 import { Container, Icon, Text } from 'native-base';
 import { Scene, Router, Actions, TabBar } from 'react-native-router-flux';
-import LoginForm from './components/LoginForm';
-import SignupForm from './components/SignupForm';
+import SignIn from './components/SignIn';
+import ConfirmCode from './components/ConfirmCode';
 import Dashboard from './components/Dashboard';
 import Events from './components/Events';
 import Friends from './components/Friends';
+import SignOut from './components/SignOut';
+// import LoginForm from './components/LoginForm';
+// import SignupForm from './components/SignupForm';
 
 class TabIcon extends Component {
   render() {
@@ -25,7 +28,7 @@ class TabIcon extends Component {
       case "Me":
         icon_name = "ios-menu-outline";
         break;
-      case "Logout":
+      case "SignOut":
         icon_name = "ios-log-out-outline";
         break;
       default:
@@ -56,6 +59,11 @@ const RouterComponent = () => {
       </Scene>
     */}
 
+      <Scene key="auth">
+        <Scene key="signin" component={SignIn} hideNavBar={true}/>
+        <Scene key="confirmcode" component={ConfirmCode} hideNavBar={true}/>
+      </Scene>
+
       <Scene key="main">
         <Scene key="tabbar" tabs={true}>
           <Scene key="tab1" title="Events" icon={TabIcon} navigationBarStyle={{backgroundColor:'#d2d2d2'}} titleStyle={{color:'black'}}>
@@ -70,8 +78,8 @@ const RouterComponent = () => {
           <Scene key="tab4" title="Me" icon={TabIcon} navigationBarStyle={{backgroundColor:'#d2d2d2'}} titleStyle={{color:'black'}}>
             <Scene key="me" component={Friends} hideNavBar={true} />
           </Scene>
-          <Scene key="tab5" title="Logout" icon={TabIcon} navigationBarStyle={{backgroundColor:'#d2d2d2'}} titleStyle={{color:'black'}}>
-            <Scene key="logout" component={Friends} hideNavBar={true} />
+          <Scene key="tab5" title="SignOut" icon={TabIcon} navigationBarStyle={{backgroundColor:'#d2d2d2'}} titleStyle={{color:'black'}}>
+            <Scene key="signout" component={SignOut} hideNavBar={true} />
           </Scene>
         </Scene>
       </Scene>

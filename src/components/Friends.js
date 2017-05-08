@@ -1,8 +1,9 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Container, Header, Title, Content, 
-         Button, Icon, List, ListItem,
-         Text, Tab, Tabs } from 'native-base';
+import { Container, Header, Body, Title,
+         Content, Button, Icon, List,
+         ListItem, Text, Tab, Tabs,
+         Left, Right } from 'native-base';
 import { Actions  } from 'react-native-router-flux';
 
 class Friends extends Component {
@@ -10,8 +11,12 @@ class Friends extends Component {
     const emails = ["Man C B B","George Szeto","Chris Yang","Kenny Lau","Simon Kwok"];
     return(
       <Container>
-        <Header>
-          <Title>AskOut</Title>
+        <Header hasTabs>
+          <Left />
+          <Body>
+            <Title>AskOut</Title>
+          </Body>
+          <Right />
         </Header>
         <Tabs>
           <Tab heading="Friends">
