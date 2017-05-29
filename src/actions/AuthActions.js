@@ -68,13 +68,27 @@ export const signInUser = ({ email, password }) => {
 
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: (result) => {
+        console.log( "onSuccess Results: ");
+        console.log( result );
         console.log('access token + ' + result.getAccessToken().getJwtToken());
+        console.log('refresh token: ' + result.refreshToken.token );
         Config.credentials = new CognitoIdentityCredentials({
           IdentityPoolId: appConfig.IdentityPoolId,
           Logins: {
             [`cognito-idp.${appConfig.region}.amazonaws.com/${appConfig.UserPoolId}`]: result.getIdToken().getJwtToken()
           }
         });
+
+        cognitoUser.getUserAttributes(function(err, result) {
+            if (err) {
+                alert(err);
+                return;
+            }
+            for (i = 0; i < result.length; i++) {
+                console.log('attribute ' + result[i].getName() + ' has value ' + result[i].getValue());
+            }
+        });
+
         // SignIn success
         console.log(Config.credentials);
         dispatch({ type: 'stop_loading' });
