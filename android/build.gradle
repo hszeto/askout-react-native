@@ -20,5 +20,17 @@ allprojects {
             // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
             url "$rootDir/../node_modules/react-native/android"
         }
+
+        // 05-29-17 Something happened to RN new version and react-native-aws-cognito-js
+        // Got the following fix from https://github.com/facebook/react-native/issues/14223#issuecomment-304447493
+        configurations.all {
+            resolutionStrategy {
+                eachDependency { DependencyResolveDetails details ->
+                    if (details.requested.group == 'com.facebook.react' && details.requested.name == 'react-native') {
+                        details.useVersion "0.41.2" // Your real React Native version here
+                    }
+                }
+            }
+        }
     }
 }
