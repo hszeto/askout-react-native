@@ -8,10 +8,14 @@ import {
   AuthenticationDetails,
   CognitoUser,
   CognitoUserPool,
-  CognitoUserAttribute
+  CognitoUserAttribute,
+  CognitoRefreshToken
 } from 'react-native-aws-cognito-js';
 
 import { Actions } from 'react-native-router-flux';
+
+import { setEmailAnd3Tokens, getEmailAnd3Tokens,
+         clearStorage, setToken } from '../Storage';
 
 const appConfig = {
   region: 'us-west-2',
@@ -68,31 +72,40 @@ export const signInUser = ({ email, password }) => {
 
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: (result) => {
-        console.log( "onSuccess Results: ");
-        console.log( result );
-        console.log('access token + ' + result.getAccessToken().getJwtToken());
-        console.log('refresh token: ' + result.refreshToken.token );
-        Config.credentials = new CognitoIdentityCredentials({
-          IdentityPoolId: appConfig.IdentityPoolId,
-          Logins: {
-            [`cognito-idp.${appConfig.region}.amazonaws.com/${appConfig.UserPoolId}`]: result.getIdToken().getJwtToken()
-          }
-        });
+        const id_token = result.getIdToken().getJwtToken();
+        const access_token = result.getAccessToken().getJwtToken();
+        const refresh_token = result.refreshToken.token;
 
-        cognitoUser.getUserAttributes(function(err, result) {
-            if (err) {
-                alert(err);
-                return;
-            }
-            for (i = 0; i < result.length; i++) {
-                console.log('attribute ' + result[i].getName() + ' has value ' + result[i].getValue());
-            }
-        });
+        // setToken( result.getAccessToken().getJwtToken() ).then(() => {
+        setEmailAnd3Tokens( email, id_token, access_token, refresh_token )
+          .then(() => {
+            dispatch({ type: 'stop_loading' });
+            Actions.main();
+          }).catch((ex) => {
+            console.log(`Error Storing Critical Info: ${ex}`);
+          });
 
-        // SignIn success
-        console.log(Config.credentials);
-        dispatch({ type: 'stop_loading' });
-        Actions.main();
+        // Config.credentials = new CognitoIdentityCredentials({
+        //   IdentityPoolId: appConfig.IdentityPoolId,
+        //   Logins: {
+        //     [`cognito-idp.${appConfig.region}.amazonaws.com/${appConfig.UserPoolId}`]: result.getIdToken().getJwtToken()
+        //   }
+        // });
+
+        // cognitoUser.getUserAttributes(function(err, result) {
+        //     if (err) {
+        //         alert(err);
+        //         return;
+        //     }
+        //     for (i = 0; i < result.length; i++) {
+        //         console.log('attribute ' + result[i].getName() + ' has value ' + result[i].getValue());
+        //     }
+        // });
+
+        // // SignIn success
+        // console.log(Config.credentials);
+        // dispatch({ type: 'stop_loading' });
+        // Actions.main();
       },
       onFailure: (err) => {
         console.log("Login Error: "+err);
@@ -234,6 +247,76 @@ export const codeResend = ({email}) => {
   };
 };
 
+export const retrieveUserFromLocalStorage = (callback) => {
+  return (dispatch) => {
+    getEmailAnd3Tokens()
+      .then((storage) => {
+        // Check for any blank email or idToken or accessToken or RefreshToken
+        let blankCheck = false;
+        storage.stored.forEach((e) => {
+          if (e[1] === "" || e[1] === null) {
+            blankCheck = true;
+          }
+        });
+        // return false if blank found
+        if (blankCheck === true) {
+          return false;
+        };
+
+        const storedEmail = storage.stored[0][1];
+        const storedIdToken = storage.stored[1][1];
+        const storedAccessToken = storage.stored[2][1];
+        const storedRefreshToken = storage.stored[3][1];
+
+        const poolData = {
+          UserPoolId: appConfig.UserPoolId,
+          ClientId: appConfig.ClientId
+        };
+        const userPool = new CognitoUserPool(poolData);
+
+        const userData = {
+          Username: storedEmail,
+          Pool: userPool
+        };
+
+        const cognitoUser = new CognitoUser(userData);
+
+        const authObj = { IdToken: storedIdToken,
+                          AccessToken: storedAccessToken,
+                          RefreshToken: storedRefreshToken };
+
+        const userSession = cognitoUser.getCognitoUserSession(authObj)
+console.log( userSession.isValid() );
+        if (userSession.isValid()) {
+          dispatch({ type: 'stop_loading' });
+          Actions.main();
+        } else {
+          const RefreshToken = new CognitoRefreshToken({RefreshToken: storedRefreshToken});
+          cognitoUser.refreshSession(RefreshToken, (err, sess) => {
+            console.log( "so refreshing!" );
+            console.log( sess );
+            clearStorage()
+              .then(() => {
+                setEmailAnd3Tokens( storedEmail, sess.getIdToken().getJwtToken(), sess.getAccessToken().getJwtToken(), sess.refreshToken.token )
+                  .then(() => {
+                    console.log( "Refreshed email and 3 tokens!" );
+                    return callback({repeat: true});
+                  }).catch((ex) => {
+                    console.log(`Error Storing Critical Info: ${ex}`);
+                  });
+              })
+              .catch((error) => {
+                console.log(error);
+              });
+          })
+        }
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
+};
+
 export const signOutUser = ({email}) => {
   return (dispatch) => {
     const poolData = {
@@ -249,6 +332,8 @@ export const signOutUser = ({email}) => {
     const cognitoUser = new CognitoUser(userData);
 
     cognitoUser.signOut();
+
+    clearStorage();
 
     dispatch({ 
       type: 'signout_user',

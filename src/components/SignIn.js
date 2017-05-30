@@ -4,11 +4,13 @@ import { Container, Header, Title, Content,
          Card, CardItem, Button, Text,
          InputGroup, Input, Spinner, Toast } from 'native-base';
 import { Col, Row, Grid } from 'react-native-easy-grid';
-import { emailChanged, passwordChanged,
+
+import { emailChanged, passwordChanged, retrieveUserFromLocalStorage,
          signInUser, signUpUser } from '../actions';
 
 class SignIn extends Component {
   componentDidMount() {
+    console.log( "signin did mount" );
     const { message } = this.props;
 
     if (message) {
@@ -18,6 +20,13 @@ class SignIn extends Component {
         buttonText: 'X'
       });
     }
+
+    // Check of current user's token still good
+    this.props.retrieveUserFromLocalStorage((res)=>{
+      if (res.repeat === true){
+        this.props.retrieveUserFromLocalStorage(()=>{});
+      }
+    });
   }
 
   componentDidUpdate() {
@@ -119,5 +128,6 @@ const mapStateToProps = ({ auth }) => {
 };
 
 export default connect(mapStateToProps, {
-  emailChanged, passwordChanged, signInUser, signUpUser
+  emailChanged, passwordChanged, signInUser,
+  signUpUser, retrieveUserFromLocalStorage
 })(SignIn);
