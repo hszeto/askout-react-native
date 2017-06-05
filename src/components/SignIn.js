@@ -21,12 +21,8 @@ class SignIn extends Component {
       });
     }
 
-    // Check of current user's token still good
-    this.props.retrieveUserFromLocalStorage((res)=>{
-      if (res.repeat === true){
-        this.props.retrieveUserFromLocalStorage(()=>{});
-      }
-    });
+    // Find user from localstorage if already login
+    this.props.retrieveUserFromLocalStorage();
   }
 
   componentDidUpdate() {

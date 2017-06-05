@@ -14,8 +14,7 @@ import {
 
 import { Actions } from 'react-native-router-flux';
 
-import { setEmailAnd3Tokens, getEmailAnd3Tokens,
-         clearStorage, setToken } from '../Storage';
+import { setToken, clearStorage } from '../Storage';
 
 const appConfig = {
   region: 'us-west-2',
@@ -25,6 +24,17 @@ const appConfig = {
 }
 
 Config.region = appConfig.region;
+
+const redirect2SignIn = (cognitoUser) => {
+  console.log( "get out!" );
+  if (cognitoUser) {
+    cognitoUser.signOut();
+  }
+
+  clearStorage();
+
+  Actions.auth({type: 'reset'});
+}
 // ================================================================
 
 export const emailChanged = (text) => {
@@ -72,40 +82,25 @@ export const signInUser = ({ email, password }) => {
 
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: (result) => {
-        const id_token = result.getIdToken().getJwtToken();
-        const access_token = result.getAccessToken().getJwtToken();
-        const refresh_token = result.refreshToken.token;
+        let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
+        let loginsIdpData = {};
+        loginsIdpData[loginsCognitoKey] = result.getIdToken().getJwtToken();
 
-        // setToken( result.getAccessToken().getJwtToken() ).then(() => {
-        setEmailAnd3Tokens( email, id_token, access_token, refresh_token )
-          .then(() => {
+        Config.credentials = new CognitoIdentityCredentials({
+          IdentityPoolId: appConfig.IdentityPoolId,
+          Logins: loginsIdpData
+        }, {
+          region: appConfig.region
+        });
+
+        Config.credentials.refresh((error) => {
+          if (error) {
+            console.error(error);
+          } else {
             dispatch({ type: 'stop_loading' });
             Actions.main();
-          }).catch((ex) => {
-            console.log(`Error Storing Critical Info: ${ex}`);
-          });
-
-        // Config.credentials = new CognitoIdentityCredentials({
-        //   IdentityPoolId: appConfig.IdentityPoolId,
-        //   Logins: {
-        //     [`cognito-idp.${appConfig.region}.amazonaws.com/${appConfig.UserPoolId}`]: result.getIdToken().getJwtToken()
-        //   }
-        // });
-
-        // cognitoUser.getUserAttributes(function(err, result) {
-        //     if (err) {
-        //         alert(err);
-        //         return;
-        //     }
-        //     for (i = 0; i < result.length; i++) {
-        //         console.log('attribute ' + result[i].getName() + ' has value ' + result[i].getValue());
-        //     }
-        // });
-
-        // // SignIn success
-        // console.log(Config.credentials);
-        // dispatch({ type: 'stop_loading' });
-        // Actions.main();
+          }
+        });
       },
       onFailure: (err) => {
         console.log("Login Error: "+err);
@@ -129,16 +124,15 @@ export const signInUser = ({ email, password }) => {
         userAttributes['email'] = email;
         cognitoUser.completeNewPasswordChallenge(password, userAttributes, {
             onSuccess: (res) => {
-              console.log("FORCE_CHANGE_PASSWORD: "+res);
+              console.log("FORCE_CHANGE_PASSWORD: " + res);
               console.log(res.getAccessToken().getJwtToken());
               dispatch({ type: 'stop_loading' });
               Actions.main();
             },
             onFailure: (error) => {
-              console.log("Sign In Failed: "+error);
-              dispatch({ type: 'clear_auth_fields' });
+              console.log("Sign In Failed: " + error);
+              dispatch({ type: 'auth_fail', message: error });
               Actions.auth({type: 'reset'});
-              alert(error);
             }
           });
       }
@@ -166,7 +160,7 @@ export const signUpUser = ({ email, password }) => {
 
     userPool.signUp(email, password, attributeList, null, function(err, result){
       if (err){
-        console.log("Sign Up Error: "+err);
+        console.log("Sign Up Error: " + err);
         if (JSON.stringify(err).includes("UsernameExistsException")){
           authFailed(dispatch, "User already exists.");
         } else if (JSON.stringify(err).includes("InvalidParameterException")) {
@@ -212,7 +206,6 @@ export const codeConfirmation = ({email, code}) => {
       }
 
       // code verification success
-      console.log('call result: ' + result);
       dispatch({ type: 'clear_auth_fields' });
       Actions.signin({type: 'reset'});
       alert("Code verified. Please sign in." );
@@ -241,79 +234,57 @@ export const codeResend = ({email}) => {
         alert(err);
         return;
       }
-      console.log('call result: ' + result);
       alert("Please check your email for the confirmation code.");
     });
   };
 };
 
-export const retrieveUserFromLocalStorage = (callback) => {
+export const retrieveUserFromLocalStorage = () => {
   return (dispatch) => {
-    getEmailAnd3Tokens()
-      .then((storage) => {
-        // Check for any blank email or idToken or accessToken or RefreshToken
-        let blankCheck = false;
-        storage.stored.forEach((e) => {
-          if (e[1] === "" || e[1] === null) {
-            blankCheck = true;
-          }
-        });
-        // return false if blank found
-        if (blankCheck === true) {
-          return false;
-        };
+    const poolData = {
+      UserPoolId: appConfig.UserPoolId,
+      ClientId: appConfig.ClientId
+    };
+    const userPool = new CognitoUserPool(poolData);
+    userPool.storage.sync((err, result) => {
+      if (err) {
+        console.log(err);
+        redirect2SignIn();
+      } else {
+        const cognitoUser = userPool.getCurrentUser();
 
-        const storedEmail = storage.stored[0][1];
-        const storedIdToken = storage.stored[1][1];
-        const storedAccessToken = storage.stored[2][1];
-        const storedRefreshToken = storage.stored[3][1];
+        if (cognitoUser != null){
+          cognitoUser.getSession(function(err, session) {
+            if (err) {
+              console.log( "getSession FAILED :" + err );
+              redirect2SignIn(cognitoUser);
+              return;
+            }
 
-        const poolData = {
-          UserPoolId: appConfig.UserPoolId,
-          ClientId: appConfig.ClientId
-        };
-        const userPool = new CognitoUserPool(poolData);
+            let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
+            let loginsIdpData = {};
+            loginsIdpData[loginsCognitoKey] = session.getIdToken().getJwtToken();
 
-        const userData = {
-          Username: storedEmail,
-          Pool: userPool
-        };
+            Config.credentials = new CognitoIdentityCredentials({
+              IdentityPoolId: appConfig.IdentityPoolId,
+              Logins: loginsIdpData
+            }, {
+              region: 'us-west-2'
+            });
 
-        const cognitoUser = new CognitoUser(userData);
-
-        const authObj = { IdToken: storedIdToken,
-                          AccessToken: storedAccessToken,
-                          RefreshToken: storedRefreshToken };
-
-        const userSession = cognitoUser.getCognitoUserSession(authObj)
-console.log( userSession.isValid() );
-        if (userSession.isValid()) {
-          dispatch({ type: 'stop_loading' });
-          Actions.main();
-        } else {
-          const RefreshToken = new CognitoRefreshToken({RefreshToken: storedRefreshToken});
-          cognitoUser.refreshSession(RefreshToken, (err, sess) => {
-            console.log( "so refreshing!" );
-            console.log( sess );
-            clearStorage()
-              .then(() => {
-                setEmailAnd3Tokens( storedEmail, sess.getIdToken().getJwtToken(), sess.getAccessToken().getJwtToken(), sess.refreshToken.token )
-                  .then(() => {
-                    console.log( "Refreshed email and 3 tokens!" );
-                    return callback({repeat: true});
-                  }).catch((ex) => {
-                    console.log(`Error Storing Critical Info: ${ex}`);
-                  });
-              })
-              .catch((error) => {
-                console.log(error);
-              });
-          })
+            Config.credentials.refresh((error) => {
+              if (error) {
+                console.error(error);
+              } else {
+                dispatch({ type: 'email_changed', payload: cognitoUser.username });
+                dispatch({ type: 'stop_loading' });
+                Actions.main();
+              }
+            });
+          });
         }
-      })
-      .catch((error) => {
-        console.log(error);
-      });
+      }
+    }); //End userPool.storage.sync
   };
 };
 
@@ -331,8 +302,31 @@ export const signOutUser = ({email}) => {
     };
     const cognitoUser = new CognitoUser(userData);
 
-    cognitoUser.signOut();
+    if (cognitoUser != null){
+      cognitoUser.getSession(function(err, session) {
+        if (err) {
+          console.log( "getSession FAIL" );
+          alert(err);
+          redirect2SignIn(cognitoUser);
+          return;
+        }
 
+        let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
+        let loginsIdpData = {};
+        loginsIdpData[loginsCognitoKey] = session.getIdToken().getJwtToken();
+
+        Config.credentials = new CognitoIdentityCredentials({
+          IdentityPoolId: appConfig.IdentityPoolId,
+          Logins: loginsIdpData
+        }, {
+          region: 'us-west-2'
+        });
+        Config.credentials.clearCachedId();
+      });
+    }
+
+    cognitoUser.clearCachedTokens();
+    cognitoUser.signOut();
     clearStorage();
 
     dispatch({ 
@@ -350,13 +344,6 @@ const authFailed = (dispatch, msg) => {
     payload: msg
   });
 }
-
-const loginUserFail = (dispatch, error_message) => {
-  dispatch({ 
-    type: 'login_user_fail',
-    payload: error_message
-  });
-};
 
 const loginUserSuccess = (dispatch, user) => {
   dispatch({
