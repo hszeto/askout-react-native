@@ -10,7 +10,6 @@ import { emailChanged, passwordChanged, retrieveUserFromLocalStorage,
 
 class SignIn extends Component {
   componentDidMount() {
-    console.log( "signin did mount" );
     const { message } = this.props;
 
     if (message) {

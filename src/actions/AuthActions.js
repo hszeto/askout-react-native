@@ -24,6 +24,22 @@ const appConfig = {
 }
 
 Config.region = appConfig.region;
+// =============================================
+const poolData = {
+  UserPoolId: appConfig.UserPoolId,
+  ClientId: appConfig.ClientId
+};
+const userPool = new CognitoUserPool(poolData);
+
+const newCognitoUser = (email) => {
+  const userData = {
+    Username: email,
+    Pool: userPool
+  };
+  const newObj = new CognitoUser(userData);
+
+  return newObj;
+};
 
 const redirect2SignIn = (cognitoUser) => {
   console.log( "get out!" );
@@ -35,7 +51,7 @@ const redirect2SignIn = (cognitoUser) => {
 
   Actions.auth({type: 'reset'});
 }
-// ================================================================
+// =============================================
 
 export const emailChanged = (text) => {
   return {
@@ -68,17 +84,8 @@ export const signInUser = ({ email, password }) => {
     };
     const authenticationDetails = new AuthenticationDetails(authenticationData);
 
-    const poolData = {
-      UserPoolId: appConfig.UserPoolId,
-      ClientId: appConfig.ClientId
-    };
-    const userPool = new CognitoUserPool(poolData);
-
-    const userData = {
-      Username: email,
-      Pool: userPool
-    };
-    const cognitoUser = new CognitoUser(userData);
+    // userPool and newCognitoUser defined on top
+    const cognitoUser = newCognitoUser(email);
 
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: (result) => {
@@ -144,11 +151,7 @@ export const signUpUser = ({ email, password }) => {
   return (dispatch) => {
     dispatch({ type: 'signup_user' });
 
-    const poolData = {
-      UserPoolId: appConfig.UserPoolId,
-      ClientId: appConfig.ClientId
-    };
-    const userPool = new CognitoUserPool(poolData);
+    // userPool defined above at around line 32
 
     var attributeList = [];
     var dataEmail = {
@@ -181,17 +184,8 @@ export const signUpUser = ({ email, password }) => {
 
 export const codeConfirmation = ({email, code}) => {
   return (dispatch) => {
-    const poolData = {
-      UserPoolId: appConfig.UserPoolId,
-      ClientId: appConfig.ClientId
-    };
-    const userPool = new CognitoUserPool(poolData);
-
-    const userData = {
-      Username: email,
-      Pool: userPool
-    };
-    const cognitoUser = new CognitoUser(userData);
+    // newCognitoUser defined on top
+    const cognitoUser = newCognitoUser(email);
 
     cognitoUser.confirmRegistration(code, true, function(err, result) {
       if (err) {
@@ -215,17 +209,8 @@ export const codeConfirmation = ({email, code}) => {
 
 export const codeResend = ({email}) => {
   return (dispatch) => {
-    const poolData = {
-      UserPoolId: appConfig.UserPoolId,
-      ClientId: appConfig.ClientId
-    };
-    const userPool = new CognitoUserPool(poolData);
-
-    const userData = {
-      Username: email,
-      Pool: userPool
-    };
-    const cognitoUser = new CognitoUser(userData);
+    // newCognitoUser defined on top
+    const cognitoUser = newCognitoUser(email);
 
     cognitoUser.resendConfirmationCode(function(err, result) {
       if (err) {
@@ -241,11 +226,7 @@ export const codeResend = ({email}) => {
 
 export const retrieveUserFromLocalStorage = () => {
   return (dispatch) => {
-    const poolData = {
-      UserPoolId: appConfig.UserPoolId,
-      ClientId: appConfig.ClientId
-    };
-    const userPool = new CognitoUserPool(poolData);
+    // userPool defined above at around line 32
     userPool.storage.sync((err, result) => {
       if (err) {
         console.log(err);
@@ -260,7 +241,8 @@ export const retrieveUserFromLocalStorage = () => {
               redirect2SignIn(cognitoUser);
               return;
             }
-
+console.log( "getting session" );
+console.log( session );
             let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
             let loginsIdpData = {};
             loginsIdpData[loginsCognitoKey] = session.getIdToken().getJwtToken();
@@ -271,7 +253,8 @@ export const retrieveUserFromLocalStorage = () => {
             }, {
               region: 'us-west-2'
             });
-
+console.log( "before refresh" );
+console.log( Config.credentials );
             Config.credentials.refresh((error) => {
               if (error) {
                 console.error(error);
@@ -281,6 +264,8 @@ export const retrieveUserFromLocalStorage = () => {
                 Actions.main();
               }
             });
+console.log( "after refresh" );
+console.log( Config.credentials );
           });
         }
       }
@@ -290,17 +275,8 @@ export const retrieveUserFromLocalStorage = () => {
 
 export const signOutUser = ({email}) => {
   return (dispatch) => {
-    const poolData = {
-      UserPoolId: appConfig.UserPoolId,
-      ClientId: appConfig.ClientId
-    };
-    const userPool = new CognitoUserPool(poolData);
-
-    const userData = {
-      Username: email,
-      Pool: userPool
-    };
-    const cognitoUser = new CognitoUser(userData);
+    // newCognitoUser defined on top
+    const cognitoUser = newCognitoUser(email);
 
     if (cognitoUser != null){
       cognitoUser.getSession(function(err, session) {
@@ -353,32 +329,3 @@ const loginUserSuccess = (dispatch, user) => {
 
   Actions.main();
 };
-
-// export const clearAuthFieldsBeforeSignup = () => {
-//   return (dispatch) => {
-//     dispatch({ type: 'clear_auth_fields' });
-
-//     Actions.signup();
-//   };
-// };
-
-// export const clearAuthFieldsBackToSignIn = () => {
-//   return (dispatch) => {
-//     dispatch({ type: 'clear_auth_fields' });
-
-//     Actions.signin();
-//   };
-// };
-
-// export const logoutUser = () => {
-//   return (dispatch) => {
-//     firebase.auth().signOut()
-//       .then(() => {
-//         dispatch({ type: 'logout_user' });
-//         Actions.auth({type: 'reset'});
-//       })
-//       .catch((error) => console.log(error));
-//   }
-// };
-
-
