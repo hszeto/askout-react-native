@@ -41,9 +41,28 @@ const newCognitoUser = (email) => {
   return newObj;
 };
 
-const redirect2SignIn = (cognitoUser) => {
-  console.log( "get out!" );
-  if (cognitoUser) {
+const clearAndRedirect2SignIn = (cognitoUser) => {
+  if (cognitoUser != null){
+    cognitoUser.getSession(function(err, session) {
+      if (err) {
+        console.log( "getSession FAIL when logout." );
+        console.log(err);
+        return;
+      }
+
+      let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
+      let loginsIdpData = {};
+      loginsIdpData[loginsCognitoKey] = session.getIdToken().getJwtToken();
+
+      Config.credentials = new CognitoIdentityCredentials({
+        IdentityPoolId: appConfig.IdentityPoolId,
+        Logins: loginsIdpData
+      }, {
+        region: 'us-west-2'
+      });
+      Config.credentials.clearCachedId();
+    });
+    cognitoUser.clearCachedTokens();
     cognitoUser.signOut();
   }
 
@@ -131,13 +150,10 @@ export const signInUser = ({ email, password }) => {
         userAttributes['email'] = email;
         cognitoUser.completeNewPasswordChallenge(password, userAttributes, {
             onSuccess: (res) => {
-              console.log("FORCE_CHANGE_PASSWORD: " + res);
-              console.log(res.getAccessToken().getJwtToken());
               dispatch({ type: 'stop_loading' });
               Actions.main();
             },
             onFailure: (error) => {
-              console.log("Sign In Failed: " + error);
               dispatch({ type: 'auth_fail', message: error });
               Actions.auth({type: 'reset'});
             }
@@ -230,19 +246,17 @@ export const retrieveUserFromLocalStorage = () => {
     userPool.storage.sync((err, result) => {
       if (err) {
         console.log(err);
-        redirect2SignIn();
+        clearAndRedirect2SignIn();
       } else {
         const cognitoUser = userPool.getCurrentUser();
 
         if (cognitoUser != null){
           cognitoUser.getSession(function(err, session) {
             if (err) {
-              console.log( "getSession FAILED :" + err );
-              redirect2SignIn(cognitoUser);
+              clearAndRedirect2SignIn(cognitoUser);
               return;
             }
-console.log( "getting session" );
-console.log( session );
+
             let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
             let loginsIdpData = {};
             loginsIdpData[loginsCognitoKey] = session.getIdToken().getJwtToken();
@@ -253,19 +267,17 @@ console.log( session );
             }, {
               region: 'us-west-2'
             });
-console.log( "before refresh" );
-console.log( Config.credentials );
+
             Config.credentials.refresh((error) => {
               if (error) {
-                console.error(error);
+                console.log(error);
+                clearAndRedirect2SignIn();
               } else {
                 dispatch({ type: 'email_changed', payload: cognitoUser.username });
                 dispatch({ type: 'stop_loading' });
                 Actions.main();
               }
             });
-console.log( "after refresh" );
-console.log( Config.credentials );
           });
         }
       }
@@ -278,39 +290,12 @@ export const signOutUser = ({email}) => {
     // newCognitoUser defined on top
     const cognitoUser = newCognitoUser(email);
 
-    if (cognitoUser != null){
-      cognitoUser.getSession(function(err, session) {
-        if (err) {
-          console.log( "getSession FAIL" );
-          alert(err);
-          redirect2SignIn(cognitoUser);
-          return;
-        }
-
-        let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
-        let loginsIdpData = {};
-        loginsIdpData[loginsCognitoKey] = session.getIdToken().getJwtToken();
-
-        Config.credentials = new CognitoIdentityCredentials({
-          IdentityPoolId: appConfig.IdentityPoolId,
-          Logins: loginsIdpData
-        }, {
-          region: 'us-west-2'
-        });
-        Config.credentials.clearCachedId();
-      });
-    }
-
-    cognitoUser.clearCachedTokens();
-    cognitoUser.signOut();
-    clearStorage();
+    clearAndRedirect2SignIn(cognitoUser);
 
     dispatch({ 
       type: 'signout_user',
       payload: "Bye!"
     });
-
-    Actions.auth({type: 'reset'});
   }
 };
 
