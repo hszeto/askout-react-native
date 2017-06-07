@@ -7,6 +7,7 @@ import { Actions  } from 'react-native-router-flux';
 import Calendar from 'react-native-calendar';
 import moment from 'moment';
 import { logoutUser } from '../actions';
+import { getAccessToken } from '../Storage';
 
 const customDayHeadings = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const customMonthNames  = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -17,7 +18,20 @@ class Events extends Component {
     super(props);
     this.state = {
       selectedDate: moment().format(),
+      accessToken: ''
     };
+  }
+
+  componentWillMount() {
+    getAccessToken()
+    .then(({access_token}) => {
+      this.setState({
+        accessToken: access_token
+      };
+    })
+    .catch((err) => {
+      console.log(err);
+    });
   }
 
   render() {

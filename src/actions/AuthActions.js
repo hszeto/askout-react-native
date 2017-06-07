@@ -14,7 +14,7 @@ import {
 
 import { Actions } from 'react-native-router-flux';
 
-import { setToken, clearStorage } from '../Storage';
+import { setAccessToken, clearStorage } from '../Storage';
 
 const appConfig = {
   region: 'us-west-2',
@@ -108,6 +108,10 @@ export const signInUser = ({ email, password }) => {
 
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: (result) => {
+        // Async store access token
+        setAccessToken( result.getAccessToken().getJwtToken() );
+
+        // Establish an user session with Cognito Identity Service
         let loginsCognitoKey = 'cognito-idp.'+ appConfig.region +'.amazonaws.com/' + appConfig.UserPoolId;
         let loginsIdpData = {};
         loginsIdpData[loginsCognitoKey] = result.getIdToken().getJwtToken();
@@ -127,6 +131,7 @@ export const signInUser = ({ email, password }) => {
             Actions.main();
           }
         });
+        // End establish an user session with Cognito Identity Service
       },
       onFailure: (err) => {
         console.log("Login Error: "+err);
