@@ -292,10 +292,10 @@ export const retrieveUserFromLocalStorage = () => {
   };
 };
 
-export const signOutUser = ({email}) => {
+export const signOutUser = (email) => {
   return (dispatch) => {
     // newCognitoUser defined on top
-    const cognitoUser = newCognitoUser(email);
+    const cognitoUser = newCognitoUser(email) || null;
 
     clearAndRedirect2SignIn(cognitoUser);
 

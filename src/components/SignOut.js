@@ -7,7 +7,7 @@ class SignOut extends Component {
   componentWillMount() {
     const { email } = this.props;
 
-    this.props.signOutUser({ email });
+    this.props.signOutUser( email );
   }
 
   render() {

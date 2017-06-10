@@ -40,11 +40,13 @@ class Events extends Component {
         })
         .catch((err)=>{
           console.log( err );
+          this.props.signOutUser(this.state.email);
         });
       });
     })
     .catch((err) => {
       console.log(err);
+      this.props.signOutUser(this.state.email);
     });
   }
 
