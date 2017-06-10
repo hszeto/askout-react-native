@@ -58,7 +58,7 @@ const clearAndRedirect2SignIn = (cognitoUser) => {
         IdentityPoolId: appConfig.IdentityPoolId,
         Logins: loginsIdpData
       }, {
-        region: 'us-west-2'
+        region: appConfig.region
       });
       Config.credentials.clearCachedId();
     });
@@ -270,7 +270,7 @@ export const retrieveUserFromLocalStorage = () => {
               IdentityPoolId: appConfig.IdentityPoolId,
               Logins: loginsIdpData
             }, {
-              region: 'us-west-2'
+              region: appConfig.region
             });
 
             Config.credentials.refresh((error) => {
@@ -278,6 +278,8 @@ export const retrieveUserFromLocalStorage = () => {
                 console.log(error);
                 clearAndRedirect2SignIn();
               } else {
+                // Async store access token
+                setAccessToken( session.getAccessToken().getJwtToken() );
                 dispatch({ type: 'email_changed', payload: cognitoUser.username });
                 dispatch({ type: 'stop_loading' });
                 Actions.main();
