@@ -6,8 +6,11 @@ import { Container, Header, Title, Content,
 import { Actions  } from 'react-native-router-flux';
 import Calendar from 'react-native-calendar';
 import moment from 'moment';
-import { logoutUser } from '../actions';
+import { signOutUser } from '../actions';
 import { getAccessToken } from '../Storage';
+import { fetchServer } from '../FetchApi';
+
+const config = require('../Config.js');
 
 const customDayHeadings = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const customMonthNames  = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -18,6 +21,7 @@ class Events extends Component {
     super(props);
     this.state = {
       selectedDate: moment().format(),
+      email: this.props.email,
       accessToken: ''
     };
   }
@@ -27,7 +31,17 @@ class Events extends Component {
     .then(({access_token}) => {
       this.setState({
         accessToken: access_token
-      };
+      },() => {
+        fetchServer(this.state.accessToken)
+        .then((res)=>{
+          console.log( "fetch server response" );
+          console.log( res );
+          console.log( this.state.email );
+        })
+        .catch((err)=>{
+          console.log( err );
+        });
+      });
     })
     .catch((err) => {
       console.log(err);
@@ -75,4 +89,10 @@ class Events extends Component {
   }
 }
 
-export default connect(null, {logoutUser})(Events);
+const mapStateToProps = ({auth}) => {
+  const { email } = auth;
+
+  return { email };
+}
+
+export default connect(mapStateToProps, {signOutUser})(Events);
